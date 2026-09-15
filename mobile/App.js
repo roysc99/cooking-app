@@ -89,9 +89,11 @@ function FavoritesScreen({ navigation }) {
 
   return <SafeAreaView style={styles.screen} edges={["left", "right", "bottom"]}>
     {!!error && <View>
+      <Text style={styles.error} accessibilityRole="alert">Something went wrong.</Text>
       <Text style={styles.error} accessibilityRole="alert">{error}</Text>
+
       <Pressable accessibilityRole="button" onPress={loadFavorites} disabled={loading} style={styles.retry}>
-        <Text style={styles.retryText}>Try again</Text>
+        <Text style={styles.retryText}>Click me to try again</Text>
       </Pressable>
     </View>}
     <FlatList
@@ -480,12 +482,27 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   error: {
+    marginTop: 20,
     fontSize: 16,
     lineHeight: 24,
     color: "#9A352C",
     textAlign: "center",
   },
-  retry: { padding: 14, marginTop: 8 },
+  retry: {   
+    backgroundColor: "#a9e8bb",
+    borderRadius: 12,
+    minHeight: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    marginTop: 16, 
+
+        marginTop: 20,
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#9A352C",
+    textAlign: "center",
+  },
   credit: {
     color: "#65695F",
     textAlign: "center",
