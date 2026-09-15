@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.replace(/\/$/, "");
+const BACKEND_URL = "https://cooking-app-ou6z.onrender.com";
 
 async function request(path, options) {
   let response;
@@ -6,7 +6,7 @@ async function request(path, options) {
     response = await fetch(`${BACKEND_URL}${path}`, options);
   } catch {
     throw new Error(
-      "Could not connect to favorites. Check that the backend is running and you are on the same Wi-Fi.",
+      "Could not connect to favorites. Check that the backend is properly running.",
     );
   }
   if (response.status === 204) return;
