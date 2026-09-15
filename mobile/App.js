@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
@@ -8,29 +8,39 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { searchByIngredient } from "./src/mealApi";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { getMealById, searchByIngredient } from "./src/mealApi";
+
+const Stack = createNativeStackNavigator();
 
 // shows the photo and name for a recipe
-function RecipeCard({ meal }) {
+function RecipeCard({ meal, onPress }) {
   return (
-    <View style={styles.card}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View recipe for ${meal.strMeal}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.dimmed]}
+    >
       <Image
         source={{ uri: meal.strMealThumb }}
         style={styles.image}
         accessibilityLabel={meal.strMeal}
       />
       <Text style={styles.recipeName}>{meal.strMeal}</Text>
-    </View>
+    </Pressable>
   );
 }
 
-function RecipeFinder() {
+function RecipeFinder({ navigation }) {
   const [ingredient, setIngredient] = useState("");
   const [searchedIngredient, setSearchedIngredient] = useState("");
   const [meals, setMeals] = useState([]);
@@ -71,7 +81,14 @@ function RecipeFinder() {
         <FlatList
           data={meals}
           keyExtractor={(meal) => meal.idMeal}
-          renderItem={({ item }) => <RecipeCard meal={item} />} // render each searched recipe
+          renderItem={({ item }) => (
+            <RecipeCard
+              meal={item}
+              onPress={() =>
+                navigation.navigate("RecipeDetails", { mealId: item.idMeal })
+              }
+            />
+          )}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -159,15 +176,138 @@ function RecipeFinder() {
   );
 }
 
+function RecipeDetails({ route }) {
+  const { mealId } = route.params;
+  const [meal, setMeal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // load the full recipe when this screen opens
+  useEffect(() => {
+    loadRecipe();
+  }, [mealId]);
+
+  async function loadRecipe() {
+    setLoading(true);
+    setError("");
+    setMeal(null);
+    try {
+      const result = await getMealById(mealId);
+      setMeal(result);
+    } catch (error) {
+      setError(
+        error.message || "Could not load this recipe. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // mealdb numbers the ingredient and measurement fields from 1 to 20
+  const ingredients = [];
+  if (meal) {
+    for (let i = 1; i <= 20; i++) {
+      const name = meal[`strIngredient${i}`]?.trim();
+      const measure = meal[`strMeasure${i}`]?.trim();
+      if (name)
+        ingredients.push({
+          id: i,
+          text: [measure, name].filter(Boolean).join(" "),
+        });
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.screen} edges={["left", "right", "bottom"]}>
+      {loading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size="large" color="#315B3D" />
+          <Text style={styles.emptyText}>Loading recipe…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.empty}>
+          <Text style={styles.error} accessibilityRole="alert">
+            {error}
+          </Text>
+          <Pressable
+            style={styles.retry}
+            accessibilityRole="button"
+            onPress={loadRecipe}
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : (
+        meal && (
+          <ScrollView contentContainerStyle={styles.content}>
+            <Image
+              source={{ uri: meal.strMealThumb }}
+              style={styles.detailImage}
+              accessibilityLabel={meal.strMeal}
+            />
+            <Text style={styles.title}>{meal.strMeal}</Text>
+            <Text style={styles.resultsHeading}>Ingredients</Text>
+            {ingredients.length ? (
+              ingredients.map((ingredient) => (
+                <Text key={ingredient.id} style={styles.ingredient}>
+                  • {ingredient.text}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.instructions}>No ingredients provided.</Text>
+            )}
+            <Text style={styles.resultsHeading}>Instructions</Text>
+            <Text style={styles.instructions}>
+              {meal.strInstructions?.trim()}
+            </Text>
+          </ScrollView>
+        )
+      )}
+    </SafeAreaView>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <RecipeFinder />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: "#F8F6EF" },
+            headerTintColor: "#243D2B",
+            contentStyle: { backgroundColor: "#F8F6EF" },
+          }}
+        >
+          <Stack.Screen
+            name="Search"
+            component={RecipeFinder}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="RecipeDetails"
+            component={RecipeDetails}
+            options={{ title: "Recipe details" }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  detailImage: {
+    width: "100%",
+    aspectRatio: 1.3,
+    borderRadius: 18,
+    marginBottom: 12,
+  },
+  ingredient: {
+    color: "#243D2B",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  instructions: { color: "#243D2B", fontSize: 16, lineHeight: 26 },
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: "#F8F6EF" },
   content: { padding: 22, paddingBottom: 32 },
