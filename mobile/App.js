@@ -419,6 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 18,
     borderRadius: 20,
+    marginTop: 15,
     borderWidth: 1,
     borderColor: "#E5E7DD",
   },
@@ -449,7 +450,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   dimmed: { opacity: 0.5 },
-  retryText: { color: "#315B3D", fontSize: 14, fontWeight: "600" },
+  retryText: { color: "#315B3D", fontSize: 14, fontWeight: "600", border: 20, padding:12, margin: 8},
   resultsHeading: {
     color: "#243D2B",
     fontSize: 20,
