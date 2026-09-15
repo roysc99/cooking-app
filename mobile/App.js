@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
@@ -15,11 +15,99 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useFocusEffect } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { getMealById, searchByIngredient } from "./src/mealApi";
+import { deleteFavorite, getFavorites, saveFavorite } from "./src/favoritesApi";
 
 const Stack = createNativeStackNavigator();
+// check whether this recipe is saved, then add or remove it
+function FavoriteButton({ meal }) {
+  const [saved, setSaved] = useState(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+
+  const checkFavorite = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const favorites = await getFavorites();
+      setSaved(favorites.some((item) => item.mealId === meal.idMeal));
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }, [meal.idMeal]);
+
+  useFocusEffect(useCallback(() => { checkFavorite(); }, [checkFavorite]));
+
+  async function toggleFavorite() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (saved) await deleteFavorite(meal.idMeal);
+      else await saveFavorite(meal);
+      setSaved(!saved);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <View>
+    <Pressable accessibilityRole="button" disabled={busy}
+      onPress={saved === null ? checkFavorite : toggleFavorite}
+      style={[styles.button, busy && styles.dimmed]}>
+      <Text style={styles.buttonText}>{busy ? "Please wait…" : saved === null ? "Retry favorites" : saved ? "Remove favorite" : "Add to favorites"}</Text>
+    </Pressable>
+    {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
+  </View>;
+}
+
+function FavoritesScreen({ navigation }) {
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadFavorites = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setFavorites(await getFavorites());
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // reload when returning from a recipe
+  useFocusEffect(useCallback(() => { loadFavorites(); }, [loadFavorites]));
+
+  return <SafeAreaView style={styles.screen} edges={["left", "right", "bottom"]}>
+    {!!error && <View>
+      <Text style={styles.error} accessibilityRole="alert">{error}</Text>
+      <Pressable accessibilityRole="button" onPress={loadFavorites} disabled={loading} style={styles.retry}>
+        <Text style={styles.retryText}>Try again</Text>
+      </Pressable>
+    </View>}
+    <FlatList
+      data={favorites}
+      keyExtractor={(item) => item.mealId}
+      contentContainerStyle={styles.content}
+      refreshing={loading}
+      onRefresh={loadFavorites}
+      renderItem={({ item }) => <RecipeCard
+        meal={{ idMeal: item.mealId, strMeal: item.name, strMealThumb: item.image }}
+        onPress={() => navigation.navigate("RecipeDetails", { mealId: item.mealId })}
+      />}
+      ListEmptyComponent={loading ? <ActivityIndicator size="large" color="#315B3D" /> : !error && <Text style={styles.emptyText}>No favorites yet. Open a recipe to save one.</Text>}
+    />
+  </SafeAreaView>;
+}
 
 // shows the photo and name for a recipe
 function RecipeCard({ meal, onPress }) {
@@ -96,6 +184,9 @@ function RecipeFinder({ navigation }) {
             <View>
               <Text style={styles.eyebrow}>LET’S GET COOKING</Text>
               <Text style={styles.title}>Recipe Finder</Text>
+              <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Favorites")} style={styles.retry}>
+                <Text style={styles.retryText}>View favorites</Text>
+              </Pressable>
               <View style={styles.searchBox}>
                 <Text style={styles.label}>What’s in your kitchen?</Text>
                 <TextInput
@@ -246,6 +337,7 @@ function RecipeDetails({ route }) {
               accessibilityLabel={meal.strMeal}
             />
             <Text style={styles.title}>{meal.strMeal}</Text>
+            <FavoriteButton key={meal.idMeal} meal={meal} />
             <Text style={styles.resultsHeading}>Ingredients</Text>
             {ingredients.length ? (
               ingredients.map((ingredient) => (
@@ -288,6 +380,7 @@ export default function App() {
             component={RecipeDetails}
             options={{ title: "Recipe details" }}
           />
+          <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ title: "Favorites" }} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

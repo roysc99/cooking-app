@@ -1,9 +1,9 @@
 import { createApp } from "./app.js";
 import { connectFirestore } from "./firebase.js";
 
-// listen locally for this checkpoint
+// allow the phone to connect over the local Wi-Fi network
 const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 try {
   const db = connectFirestore();
   createApp(db).listen(port, host, () => {
